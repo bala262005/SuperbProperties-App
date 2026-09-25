@@ -1,10 +1,13 @@
 
+import { useUserSync } from "@/hooks/useUserSync";
 import { useAuth } from "@clerk/clerk-expo";
 import { Redirect, Slot, useSegments } from "expo-router";
 
 export default function RootGroupLayout() {
   const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
+
+  useUserSync();
 
   if (!isLoaded) {
     return null;
