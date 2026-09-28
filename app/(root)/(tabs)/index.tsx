@@ -1,19 +1,19 @@
-
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Text,
   TextInput,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import PropertyCard from "@/components/PropertyCard";
 import { useSupabase } from "@/hooks/useSupabase";
+import { useFilterStore } from "@/store/filterStore";
 
 type Property = {
-  id: number;
+  id: string;
   title: string;
   description: string;
   price: number;
@@ -27,15 +27,23 @@ type Property = {
   longitude: number;
   images: string[];
   is_featured: boolean;
+  is_sold?: boolean;
 };
 
 export default function HomeScreen() {
   const supabase = useSupabase();
 
   const [properties, setProperties] = useState<Property[]>([]);
-  const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
-  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const search = useFilterStore((state) => state.search);
+  const setSearch = useFilterStore((state) => state.setSearch);
+
+  const city = useFilterStore((state) => state.city);
+  const type = useFilterStore((state) => state.type);
+  const minPrice = useFilterStore((state) => state.minPrice);
+  const maxPrice = useFilterStore((state) => state.maxPrice);
+  const bedrooms = useFilterStore((state) => state.bedrooms);
 
   useEffect(() => {
     fetchProperties();
@@ -56,156 +64,55 @@ export default function HomeScreen() {
     }
 
     setProperties(data ?? []);
-    setFilteredProperties(data ?? []);
     setLoading(false);
   };
 
-  const handleSearch = (text: string) => {
-    setSearch(text);
+  const filteredProperties = properties.filter((property) => {
+    const searchText = search.toLowerCase().trim();
+    const cityText = city.toLowerCase().trim();
+    const typeText = type.toLowerCase().trim();
 
-    if (text.trim() === "") {
-      setFilteredProperties(properties);
-      return;
-    }
+    const matchesSearch =
+      searchText === "" ||
+      property.title.toLowerCase().includes(searchText) ||
+      property.city.toLowerCase().includes(searchText) ||
+      property.type.toLowerCase().includes(searchText);
 
-    const searchText = text.toLowerCase();
+    const matchesCity =
+      cityText === "" ||
+      property.city.toLowerCase().includes(cityText);
 
-    const filtered = properties.filter(
-      (property) =>
-        property.city.toLowerCase().includes(searchText) ||
-        property.title.toLowerCase().includes(searchText) ||
-        property.type.toLowerCase().includes(searchText)
-    );
+    const matchesType =
+      typeText === "" ||
+      property.type.toLowerCase().includes(typeText);
 
-    setFilteredProperties(filtered);
-  };
+    const matchesMinPrice =
+      minPrice === 0 || property.price >= minPrice;
 
-  const formatPrice = (price: number) => {
-    return `₹${price.toLocaleString("en-IN")}`;
-  };
+    const matchesMaxPrice =
+      maxPrice === 0 || property.price <= maxPrice;
 
-  const renderProperty = ({ item }: { item: Property }) => {
+    const matchesBedrooms =
+      bedrooms === 0 || property.bedrooms >= bedrooms;
+
     return (
-      <View
-        style={{
-          backgroundColor: "#FFFFFF",
-          borderRadius: 12,
-          marginBottom: 18,
-          overflow: "hidden",
-          borderWidth: 1,
-          borderColor: "#E5E7EB",
-        }}
-      >
-        {/* Property Image */}
-        {item.images && item.images.length > 0 && (
-          <Image
-            source={{ uri: item.images[0] }}
-            style={{
-              width: "100%",
-              height: 220,
-            }}
-            resizeMode="cover"
-          />
-        )}
-
-        <View style={{ padding: 14 }}>
-          {/* Featured */}
-          {item.is_featured && (
-            <View
-              style={{
-                alignSelf: "flex-start",
-                backgroundColor: "#2563EB",
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 5,
-                marginBottom: 8,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#FFFFFF",
-                  fontSize: 12,
-                  fontWeight: "bold",
-                }}
-              >
-                FEATURED
-              </Text>
-            </View>
-          )}
-
-          {/* Title */}
-          <Text
-            style={{
-              fontSize: 19,
-              fontWeight: "bold",
-              color: "#111827",
-            }}
-          >
-            {item.title}
-          </Text>
-
-          {/* Location */}
-          <Text
-            style={{
-              marginTop: 5,
-              color: "#6B7280",
-              fontSize: 14,
-            }}
-          >
-            📍 {item.city}
-          </Text>
-
-          {/* Price */}
-          <Text
-            style={{
-              marginTop: 8,
-              color: "#2563EB",
-              fontSize: 18,
-              fontWeight: "bold",
-            }}
-          >
-            {formatPrice(item.price)}
-          </Text>
-
-          {/* Details */}
-          <View
-            style={{
-              flexDirection: "row",
-              marginTop: 10,
-              gap: 16,
-            }}
-          >
-            <Text style={{ color: "#4B5563" }}>
-              🛏 {item.bedrooms} Beds
-            </Text>
-
-            <Text style={{ color: "#4B5563" }}>
-              🛁 {item.bathrooms} Baths
-            </Text>
-
-            <Text style={{ color: "#4B5563" }}>
-              📐 {item.area_sqft} sqft
-            </Text>
-          </View>
-
-          {/* Type */}
-          <Text
-            style={{
-              marginTop: 8,
-              color: "#6B7280",
-              textTransform: "capitalize",
-            }}
-          >
-            {item.type}
-          </Text>
-        </View>
-      </View>
+      matchesSearch &&
+      matchesCity &&
+      matchesType &&
+      matchesMinPrice &&
+      matchesMaxPrice &&
+      matchesBedrooms
     );
-  };
+  });
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: 12,
+        }}
+      >
         <Text
           style={{
             fontSize: 24,
@@ -217,14 +124,13 @@ export default function HomeScreen() {
           Find Your Property
         </Text>
 
-        {/* Search */}
         <TextInput
           value={search}
-          onChangeText={handleSearch}
+          onChangeText={setSearch}
           placeholder="Search city, property or type..."
           placeholderTextColor="#6B7280"
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#efad67",
             borderWidth: 1,
             borderColor: "#D1D5DB",
             borderRadius: 10,
@@ -235,7 +141,6 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Loading */}
       {loading ? (
         <View
           style={{
@@ -246,15 +151,22 @@ export default function HomeScreen() {
         >
           <ActivityIndicator size="large" />
 
-          <Text style={{ marginTop: 10, color: "#6B7280" }}>
+          <Text
+            style={{
+              marginTop: 10,
+              color: "#6B7280",
+            }}
+          >
             Loading properties...
           </Text>
         </View>
       ) : (
         <FlatList
           data={filteredProperties}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderProperty}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <PropertyCard property={item} />
+          )}
           contentContainerStyle={{
             padding: 16,
             paddingBottom: 30,
@@ -280,9 +192,10 @@ export default function HomeScreen() {
                 style={{
                   marginTop: 6,
                   color: "#6B7280",
+                  textAlign: "center",
                 }}
               >
-                Try searching another city or property.
+                Try changing your search or filters.
               </Text>
             </View>
           }
@@ -291,4 +204,3 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
-
